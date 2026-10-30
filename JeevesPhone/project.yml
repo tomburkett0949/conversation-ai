@@ -1,0 +1,29 @@
+name: JeevesPhone
+options:
+  bundleIdPrefix: ${BUNDLE_PREFIX}
+  deploymentTarget:
+    iOS: "26.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: ${TEAM_ID}
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  JeevesPhone:
+    type: application
+    platform: iOS
+    sources: [Jeeves]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ${BUNDLE_PREFIX}.jeevesassistant
+        PRODUCT_NAME: JeevesPhone
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Jeeves
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Jeeves listens to your voice."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Jeeves turns your speech into text on the phone."
+        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "Jeeves reads and adds your diary entries."
+        INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "Jeeves reads and adds your reminders."

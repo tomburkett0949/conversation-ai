@@ -3,7 +3,7 @@ name: Build and send to TestFlight
 on:
   push:
     branches: [main]
-    paths-ignore: ['docs/**', '*.md', 'config/**', 'tools/**', '.github/workflows/testflight-check.yml']
+    paths-ignore: ['docs/**', '*.md', 'config/**', 'tools/**', 'JeevesPhone/**', '.github/workflows/testflight-check.yml', '.github/workflows/jeeves-phone.yml']
   workflow_dispatch:
 
 concurrency:
