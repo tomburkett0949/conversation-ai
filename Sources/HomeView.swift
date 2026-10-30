@@ -81,6 +81,7 @@ struct HomeView: View {
             case .askAI: AskView()
             case .importAudio: ImportView()
             case .actions: ActionsView()
+            case .search: SearchView()
             default: ComingSoonView(title: f.rawValue)
             }
         }

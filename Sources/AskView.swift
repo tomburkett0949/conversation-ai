@@ -1,4 +1,5 @@
 import SwiftUI
+import NaturalLanguage
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -44,7 +45,44 @@ enum Retriever {
                 i += 3
             }
         }
-        return scored.sorted { $0.0 > $1.0 }.prefix(limit).map { $0.1 }
+        let best = scored.sorted { $0.0 > $1.0 }.prefix(limit).map { $0.1 }
+        if best.count >= 3 { return best }
+        return best + semantic(query, in: items, limit: limit - best.count, skip: best)
+    }
+
+    /// Meaning-based fallback using Apple's on-device sentence embeddings (no keywords needed).
+    static func semantic(_ query: String, in items: [RecordingItem], limit: Int, skip: [Excerpt]) -> [Excerpt] {
+        guard limit > 0, let emb = NLEmbedding.sentenceEmbedding(for: .english) else { return [] }
+        var scored: [(Double, Excerpt)] = []
+        var count = 0
+        for item in items {
+            guard let m = Storage.loadMeeting(for: item.url) else { continue }
+            var i = 0
+            while i < m.lines.count, count < 600 {
+                let window = m.lines[i..<min(i + 3, m.lines.count)]
+                let text = window.map { $0.text }.joined(separator: " ")
+                let d = emb.distance(between: query, and: text, distanceType: .cosine)
+                if d < 1.1, !skip.contains(where: { $0.item.url == item.url && $0.time == window.first!.time }) {
+                    scored.append((d, Excerpt(item: item, time: window.first!.time, text: text)))
+                }
+                i += 3; count += 1
+            }
+        }
+        return scored.sorted { $0.0 < $1.0 }.prefix(limit).map { $0.1 }
+    }
+
+    /// Exact word or phrase search for the Search screen.
+    static func find(_ query: String, in items: [RecordingItem]) -> [Excerpt] {
+        let q = query.lowercased()
+        guard q.count > 1 else { return [] }
+        var out: [Excerpt] = []
+        for item in items {
+            guard let m = Storage.loadMeeting(for: item.url) else { continue }
+            for l in m.lines where l.text.lowercased().contains(q) {
+                out.append(Excerpt(item: item, time: l.time, text: l.text))
+            }
+        }
+        return out
     }
 }
 

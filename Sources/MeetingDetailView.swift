@@ -56,6 +56,12 @@ struct MeetingDetailView: View {
     @State private var meeting: SavedMeeting?
     @State private var tab = "Summary"
     @State private var working = false
+    @State private var renaming = false
+    @State private var foldering = false
+    @State private var input = ""
+    @State private var cardIndex = 0
+    @State private var revealed = false
+    @State private var makingCards = false
     @State private var notes = ""
 
     private var lines: [TranscriptLine] { meeting?.lines ?? [] }
@@ -67,16 +73,36 @@ struct MeetingDetailView: View {
             Picker("", selection: $tab) {
                 Text("Summary").tag("Summary")
                 Text("Transcript").tag("Transcript")
+                Text("Study").tag("Study")
                 Text("Notes").tag("Notes")
-                Text("Bookmarks").tag("Bookmarks")
+                Text("Marks").tag("Bookmarks")
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16).padding(.bottom, 8)
             content
         }
         .background(Brand.bg.ignoresSafeArea())
-        .navigationTitle(item.date.formatted(date: .abbreviated, time: .shortened))
+        .navigationTitle(meeting?.title ?? item.date.formatted(date: .abbreviated, time: .shortened))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button { input = meeting?.title ?? ""; renaming = true } label: { Label("Rename", systemImage: "pencil") }
+                    Button { input = meeting?.folder ?? ""; foldering = true } label: { Label("Set folder", systemImage: "folder") }
+                    ShareLink(item: exportText) { Label("Share transcript and summary", systemImage: "square.and.arrow.up") }
+                } label: { Image(systemName: "ellipsis.circle") }
+            }
+        }
+        .alert("Rename", isPresented: $renaming) {
+            TextField("Title", text: $input)
+            Button("Save") { update { $0.title = input.isEmpty ? nil : input } }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Folder", isPresented: $foldering) {
+            TextField("e.g. Coaching course, Lectures", text: $input)
+            Button("Save") { update { $0.folder = input.isEmpty ? nil : input } }
+            Button("Cancel", role: .cancel) {}
+        }
         .onAppear {
             player.load(item.url)
             meeting = Storage.loadMeeting(for: item.url)
@@ -111,6 +137,8 @@ struct MeetingDetailView: View {
         switch tab {
         case "Summary":
             summaryView
+        case "Study":
+            studyView
         case "Notes":
             TextEditor(text: $notes)
                 .padding(12).scrollContentBackground(.hidden)
@@ -164,6 +192,77 @@ struct MeetingDetailView: View {
             }
             .onChange(of: activeIndex) { _, new in
                 if let new, player.isPlaying { withAnimation { proxy.scrollTo(lines[new].id, anchor: .center) } }
+            }
+        }
+    }
+
+    private func update(_ change: (inout SavedMeeting) -> Void) {
+        guard var m = meeting else { return }
+        change(&m)
+        meeting = m
+        Storage.saveMeeting(m, for: item.url)
+    }
+
+    private var exportText: String {
+        var out = (meeting?.title ?? item.date.formatted(date: .long, time: .shortened)) + "\n\n"
+        if let s = meeting?.summary {
+            out += "SUMMARY\n" + s.overview + "\n\n"
+            if !s.keyPoints.isEmpty { out += "KEY POINTS\n" + s.keyPoints.map { "- " + $0 }.joined(separator: "\n") + "\n\n" }
+            if !s.actions.isEmpty { out += "ACTIONS\n" + s.actions.map { "- " + $0 }.joined(separator: "\n") + "\n\n" }
+            if !s.decisions.isEmpty { out += "DECISIONS\n" + s.decisions.map { "- " + $0 }.joined(separator: "\n") + "\n\n" }
+        }
+        if let n = meeting?.notes, !n.isEmpty { out += "NOTES\n" + n + "\n\n" }
+        out += "TRANSCRIPT\n" + lines.map { "[\(time($0.time))] \($0.text)" }.joined(separator: "\n")
+        return out
+    }
+
+    private var studyView: some View {
+        let cards = meeting?.study ?? []
+        return ScrollView {
+            VStack(spacing: 16) {
+                if cards.isEmpty {
+                    Text("Turn this recording into flashcards to revise from.").foregroundStyle(Brand.dim).multilineTextAlignment(.center)
+                } else {
+                    let c = cards[min(cardIndex, cards.count - 1)]
+                    Text("Card \(min(cardIndex, cards.count - 1) + 1) of \(cards.count)").font(.footnote).foregroundStyle(Brand.dim)
+                    Button { revealed.toggle() } label: {
+                        VStack(spacing: 12) {
+                            Text(c.question).font(.title3.bold()).foregroundStyle(Brand.pink)
+                            if revealed { Divider(); Text(c.answer).foregroundStyle(Brand.ink) }
+                            else { Text("Tap to show the answer").font(.footnote).foregroundStyle(Brand.dim) }
+                        }
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, minHeight: 200).padding(20)
+                        .background(Brand.panel, in: RoundedRectangle(cornerRadius: 16))
+                    }.buttonStyle(.plain)
+                    HStack {
+                        Button("Previous") { cardIndex = max(0, cardIndex - 1); revealed = false }.disabled(cardIndex == 0)
+                        Spacer()
+                        Button("Next") { cardIndex = min(cards.count - 1, cardIndex + 1); revealed = false }.disabled(cardIndex >= cards.count - 1)
+                    }
+                }
+                if makingCards {
+                    ProgressView("Writing flashcards on this device…")
+                } else if !lines.isEmpty {
+                    Button { makeCards() } label: {
+                        Label(cards.isEmpty ? "Create flashcards" : "Make new flashcards", systemImage: "rectangle.on.rectangle")
+                            .frame(maxWidth: .infinity).padding(12)
+                            .background(Brand.pink.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    if !Summarizer.aiAvailable { Text("Needs Apple Intelligence, which isn't available on this device.").font(.footnote).foregroundStyle(Brand.dim) }
+                }
+            }
+            .padding(16)
+        }
+    }
+
+    private func makeCards() {
+        makingCards = true
+        Task {
+            let cards = await StudyMaker.make(lines)
+            await MainActor.run {
+                if let cards, !cards.isEmpty { update { $0.study = cards }; cardIndex = 0; revealed = false }
+                makingCards = false
             }
         }
     }

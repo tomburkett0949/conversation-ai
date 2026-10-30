@@ -35,6 +35,9 @@ struct SavedMeeting: Codable {
     var bookmarks: [TimeInterval]
     var notes: String
     var summary: MeetingSummary? = nil
+    var title: String? = nil
+    var folder: String? = nil
+    var study: [Flashcard]? = nil
 }
 
 /// Records with AVAudioEngine (so audio can feed live on-device speech recognition at the same time).
@@ -178,6 +181,14 @@ final class Recorder: NSObject, ObservableObject {
             let meeting = SavedMeeting(date: startDate, duration: duration, lines: lines, bookmarks: bookmarks, notes: notes)
             if let data = try? JSONEncoder().encode(meeting) {
                 try? data.write(to: url.deletingPathExtension().appendingPathExtension("json"))
+            }
+            // Write the summary in the background so it is ready when you open the meeting.
+            let savedLines = lines
+            Task.detached {
+                guard let s = await Summarizer.summarize(savedLines),
+                      var m = Storage.loadMeeting(for: url) else { return }
+                m.summary = s
+                Storage.saveMeeting(m, for: url)
             }
         }
         saved = true
