@@ -1,0 +1,14 @@
+{
+  "productName": "Conversation AI",
+  "companyName": "",
+  "logo": "assets/logo.svg",
+  "appIcon": "assets/app-icon.png",
+  "fonts": { "display": "\"Bebas Neue\",\"Bahnschrift Condensed\",\"Arial Narrow\",Impact,sans-serif", "body": "-apple-system,\"SF Pro Text\",\"Segoe UI\",Inter,sans-serif" },
+  "colors": {
+    "dark": { "bg": "#0A0A0C", "panel": "#141418", "panel2": "#1B1B21", "line": "#2A2A31", "ink": "#F2F2F4", "dim": "#A3A3AD", "faint": "#6E6E78" },
+    "accent": { "pink": "#FF9AF6", "hot": "#E6189C", "gradientFrom": "#FF3DB8", "gradientTo": "#B01178" },
+    "status": { "success": "#2FDE7C", "warning": "#FFB020", "danger": "#FF5A5A" }
+  },
+  "radius": { "chip": 999, "card": 12, "button": 10, "small": 6 },
+  "_source": "Colours/fonts only, read from the Rugby Custom stylesheet. No rugby code or features."
+}

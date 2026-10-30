@@ -1,0 +1,7 @@
+*.xcodeproj
+.DS_Store
+build/
+*.p8
+*.m4a
+*.wav
+*.mp3

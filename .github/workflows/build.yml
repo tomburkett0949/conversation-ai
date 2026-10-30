@@ -1,0 +1,77 @@
+name: Build and send to TestFlight
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '*.md', 'config/**']
+  workflow_dispatch:
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      TEAM_ID: ${{ vars.TEAM_ID }}
+      BUNDLE_PREFIX: ${{ vars.BUNDLE_PREFIX }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use the newest Xcode 26 (Apple needs the iOS 26 SDK)
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$X" ]; then sudo xcode-select -s "$X"; fi
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i "iOS 26" || { echo "No iOS 26 SDK found on this runner"; exit 1; }
+      - name: Tools
+        run: brew install xcodegen
+      - name: Apple key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s' "$ASC_KEY_P8" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+      - name: Make the Xcode project
+        run: xcodegen generate
+      - name: Archive
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project ConversationAI.xcodeproj -scheme ConversationAI \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} 2>&1 | tee "$RUNNER_TEMP/archive.log" | tail -n 60
+      - name: Send to TestFlight
+        run: |
+          cat > "$RUNNER_TEMP/export.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          ok=no
+          for n in 1 2 3 4; do
+            echo "Export attempt $n"
+            rm -rf "$RUNNER_TEMP/out"
+            xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/app.xcarchive" \
+              -exportOptionsPlist "$RUNNER_TEMP/export.plist" -exportPath "$RUNNER_TEMP/out" \
+              -allowProvisioningUpdates \
+              -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+              -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee "$RUNNER_TEMP/export.log"
+            if [ "${PIPESTATUS[0]}" -eq 0 ]; then ok=yes; break; fi
+            sleep $((n * 45))
+          done
+          test "$ok" = yes
+      - name: Why it failed
+        if: failure()
+        run: |
+          for f in "$RUNNER_TEMP"/*.log; do grep -i -E "error|fail|invalid|already|denied|limit|exceed|reject" "$f" | grep -v -i "0 errors" | head -10 | while IFS= read -r line; do echo "::error::$(basename $f): ${line:0:400}"; done; done
