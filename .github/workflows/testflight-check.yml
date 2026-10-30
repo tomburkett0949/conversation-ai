@@ -1,0 +1,21 @@
+name: Check TestFlight status
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tools/testflight_check.py', '.github/workflows/testflight-check.yml']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m pip install pyjwt cryptography
+      - name: Check and prepare TestFlight
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          BUNDLE_ID: ${{ vars.BUNDLE_PREFIX }}.conversationai
+        run: python3 tools/testflight_check.py
