@@ -39,7 +39,7 @@ jobs:
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
           BUNDLE_ID: ${{ vars.BUNDLE_PREFIX }}.jeevesassistant
-        run: python3 -m pip install --quiet pyjwt cryptography && python3 tools/register_bundle.py
+        run: python3 -m pip install --quiet --break-system-packages pyjwt cryptography && python3 tools/register_bundle.py
       - name: Make the Xcode project
         run: cd JeevesPhone && xcodegen generate
       - name: Archive
