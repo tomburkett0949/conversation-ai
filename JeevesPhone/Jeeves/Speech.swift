@@ -2,6 +2,26 @@ import Foundation
 import Speech
 import AVFoundation
 
+
+// These live OUTSIDE the main-actor class on purpose: Apple calls these callbacks on background threads, and closures created inside a
+// main-actor class would crash the app there.
+func askSpeechPermission() async {
+    _ = await withCheckedContinuation { (c: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
+        SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) }
+    }
+}
+
+func installMicTap(_ input: AVAudioInputNode, _ req: SFSpeechAudioBufferRecognitionRequest) {
+    input.removeTap(onBus: 0)
+    input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { buffer, _ in req.append(buffer) }
+}
+
+func startRecognition(_ rec: SFSpeechRecognizer?, _ req: SFSpeechAudioBufferRecognitionRequest, _ handler: @escaping @Sendable (String?, Bool) -> Void) -> SFSpeechRecognitionTask? {
+    rec?.recognitionTask(with: req) { result, error in
+        handler(result?.bestTranscription.formattedString, (result?.isFinal ?? false) || error != nil)
+    }
+}
+
 /// Free, on-device hearing and speaking. Nothing leaves the phone.
 @MainActor final class Voice: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published var heard = ""
@@ -17,7 +37,7 @@ import AVFoundation
     override init() { super.init(); synth.delegate = self }
 
     func authorise() async {
-        _ = await withCheckedContinuation { c in SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) } }
+        await askSpeechPermission()
         _ = await AVAudioApplication.requestRecordPermission()
     }
 
@@ -29,15 +49,13 @@ import AVFoundation
         let req = SFSpeechAudioBufferRecognitionRequest(); req.shouldReportPartialResults = true
         req.requiresOnDeviceRecognition = recognizer?.supportsOnDeviceRecognition ?? false
         request = req
-        let input = engine.inputNode
-        input.removeTap(onBus: 0)
-        input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { [weak req] b, _ in req?.append(b) }
+        installMicTap(engine.inputNode, req)
         engine.prepare(); try? engine.start(); listening = true
-        task = recognizer?.recognitionTask(with: req) { [weak self] r, e in
+        task = startRecognition(recognizer, req) { [weak self] text, done in
             Task { @MainActor in
                 guard let self else { return }
-                if let r { self.heard = r.bestTranscription.formattedString }
-                if (r?.isFinal ?? false) || e != nil { self.finish() }
+                if let text { self.heard = text }
+                if done { self.finish() }
             }
         }
     }
