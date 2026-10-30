@@ -53,7 +53,8 @@ struct MeetingDetailView: View {
     let item: RecordingItem
     @StateObject private var player = PlayerModel()
     @State private var meeting: SavedMeeting?
-    @State private var tab = "Transcript"
+    @State private var tab = "Summary"
+    @State private var working = false
     @State private var notes = ""
 
     private var lines: [TranscriptLine] { meeting?.lines ?? [] }
@@ -63,6 +64,7 @@ struct MeetingDetailView: View {
         VStack(spacing: 0) {
             header
             Picker("", selection: $tab) {
+                Text("Summary").tag("Summary")
                 Text("Transcript").tag("Transcript")
                 Text("Notes").tag("Notes")
                 Text("Bookmarks").tag("Bookmarks")
@@ -105,6 +107,8 @@ struct MeetingDetailView: View {
 
     @ViewBuilder private var content: some View {
         switch tab {
+        case "Summary":
+            summaryView
         case "Notes":
             TextEditor(text: $notes)
                 .padding(12).scrollContentBackground(.hidden)
@@ -158,6 +162,56 @@ struct MeetingDetailView: View {
             }
             .onChange(of: activeIndex) { _, new in
                 if let new, player.isPlaying { withAnimation { proxy.scrollTo(lines[new].id, anchor: .center) } }
+            }
+        }
+    }
+
+    private var summaryView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let s = meeting?.summary {
+                    section("Overview", [s.overview])
+                    if !s.keyPoints.isEmpty { section("Key points", s.keyPoints) }
+                    if !s.actions.isEmpty { section("Action items", s.actions) }
+                    if !s.decisions.isEmpty { section("Decisions", s.decisions) }
+                    Text(s.onDeviceAI ? "Written on this device by Apple's on-device AI." : "Basic summary (Apple Intelligence is not available on this device).")
+                        .font(.footnote).foregroundStyle(Brand.dim)
+                }
+                if working {
+                    ProgressView("Summarising on this device…").frame(maxWidth: .infinity)
+                } else if !lines.isEmpty {
+                    Button { generate() } label: {
+                        Label(meeting?.summary == nil ? "Create summary" : "Redo summary", systemImage: "sparkles")
+                            .frame(maxWidth: .infinity).padding(12)
+                            .background(Brand.pink.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                    }
+                } else {
+                    Text("No transcript to summarise.").foregroundStyle(Brand.dim)
+                }
+            }
+            .padding(16)
+        }
+    }
+
+    private func section(_ title: String, _ items: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.headline).foregroundStyle(Brand.pink)
+            ForEach(items, id: \.self) { Text(items.count > 1 ? "• \($0)" : $0).foregroundStyle(Brand.ink) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func generate() {
+        working = true
+        Task {
+            let result = await Summarizer.summarize(lines)
+            await MainActor.run {
+                if var m = meeting, let result {
+                    m.summary = result
+                    meeting = m
+                    Storage.saveMeeting(m, for: item.url)
+                }
+                working = false
             }
         }
     }

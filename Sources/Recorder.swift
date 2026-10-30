@@ -34,6 +34,7 @@ struct SavedMeeting: Codable {
     var lines: [TranscriptLine]
     var bookmarks: [TimeInterval]
     var notes: String
+    var summary: MeetingSummary? = nil
 }
 
 /// Records with AVAudioEngine (so audio can feed live on-device speech recognition at the same time).
