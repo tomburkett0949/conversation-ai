@@ -72,7 +72,7 @@ final class Recorder: NSObject, ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard granted else {
-                    self.message = "Microphone access is off. Turn it on in Settings > Conversation AI."
+                    self.message = "Microphone access is off. Turn it on in Settings > Jeeves."
                     return
                 }
                 SFSpeechRecognizer.requestAuthorization { status in

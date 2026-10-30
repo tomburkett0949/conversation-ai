@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Central branding. Rename the product or change colours here (mirrors config/brand.config.json).
 enum Brand {
-    static let productName = "Conversation AI"
+    static let productName = "Jeeves"
     static let tagline = "Your private memory for conversations"
 
     // Adaptive colours: (light, dark). Follows the Appearance setting.

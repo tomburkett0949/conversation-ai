@@ -26,10 +26,10 @@ targets:
     info:
       path: Config/Info.plist
       properties:
-        CFBundleDisplayName: Conversation AI
+        CFBundleDisplayName: Jeeves
         UILaunchScreen: {}
-        NSMicrophoneUsageDescription: Conversation AI records audio only when you press Record, so it can transcribe and summarise your meetings and lectures.
-        NSSpeechRecognitionUsageDescription: Conversation AI turns your speech into live text on this device, so you can read the transcript as you record.
+        NSMicrophoneUsageDescription: Jeeves records audio only when you press Record, so it can transcribe and summarise your meetings and lectures.
+        NSSpeechRecognitionUsageDescription: Jeeves turns your speech into live text on this device, so you can read the transcript as you record.
         UIBackgroundModes: [audio]
         UIAppFonts: [BebasNeue-Regular.ttf]
         ITSAppUsesNonExemptEncryption: false
