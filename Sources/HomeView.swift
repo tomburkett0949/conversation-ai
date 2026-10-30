@@ -78,6 +78,7 @@ struct HomeView: View {
             switch f {
             case .record: RecordView()
             case .meetings: MeetingsView()
+            case .askAI: AskView()
             default: ComingSoonView(title: f.rawValue)
             }
         }

@@ -51,6 +51,7 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
 struct MeetingDetailView: View {
     let item: RecordingItem
+    var startAt: TimeInterval? = nil
     @StateObject private var player = PlayerModel()
     @State private var meeting: SavedMeeting?
     @State private var tab = "Summary"
@@ -80,6 +81,7 @@ struct MeetingDetailView: View {
             player.load(item.url)
             meeting = Storage.loadMeeting(for: item.url)
             notes = meeting?.notes ?? ""
+            if let t = startAt { tab = "Transcript"; player.seek(t) }
         }
         .onDisappear { player.stop(); saveNotes() }
     }
