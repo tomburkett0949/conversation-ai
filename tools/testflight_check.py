@@ -60,3 +60,21 @@ for u in users.get("data", []):
     if "error" in r: note(f"Add tester result: {r['error']} (409 usually means already added)")
     else: added += 1
 note(f"Testers added to internal group: {added}")
+
+# --- detail pass ---
+for b in (builds.get("data", []) if "error" not in builds else [])[:1]:
+    d = call("GET", f"/v1/builds/{b['id']}/buildBetaDetail")
+    if "error" in d: note(f"buildBetaDetail error: {d['error']} {d['detail']}")
+    else:
+        a = d["data"]["attributes"]
+        note(f"internalBuildState={a.get('internalBuildState')} externalBuildState={a.get('externalBuildState')} autoNotify={a.get('autoNotifyEnabled')}")
+    r = call("POST", f"/v1/betaGroups/{gid}/relationships/builds", {"data": [{"type": "builds", "id": b["id"]}]})
+    note("Build assigned to Internal group" if "error" not in r else f"Assign build result: {r['error']} {r['detail'][:150]}")
+gb = call("GET", f"/v1/betaGroups/{gid}/builds")
+note(f"Builds in Internal group: {len(gb.get('data', [])) if 'error' not in gb else gb}")
+gt = call("GET", f"/v1/betaGroups/{gid}/betaTesters?limit=50")
+if "error" in gt: note(f"Testers error: {gt['error']} {gt['detail'][:150]}")
+else:
+    from collections import Counter
+    c = Counter((t["attributes"].get("state"), t["attributes"].get("inviteType")) for t in gt.get("data", []))
+    note(f"Testers in group by (state, inviteType): {dict(c)}")
