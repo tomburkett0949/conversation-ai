@@ -26,7 +26,31 @@ enum Feature: String, CaseIterable, Identifiable {
     }
 }
 
+struct SettingsView: View {
+    @AppStorage("appearance") private var appearance = "system"
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Appearance") {
+                    Picker("Theme", selection: $appearance) {
+                        Text("System").tag("system")
+                        Text("Light").tag("light")
+                        Text("Dark").tag("dark")
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
 struct HomeView: View {
+    @State private var showSettings = false
     private let columns = [GridItem(.adaptive(minimum: 160), spacing: 14)]
 
     var body: some View {
@@ -50,6 +74,12 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Brand.bg.ignoresSafeArea())
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showSettings = true } label: { Image(systemName: "gearshape") }
+            }
+        }
+        .sheet(isPresented: $showSettings) { SettingsView() }
         .navigationDestination(for: Feature.self) { f in
             switch f {
             case .record: RecordView()
