@@ -11,6 +11,17 @@ enum Storage {
     }
 }
 
+extension Storage {
+    static func jsonURL(for audio: URL) -> URL { audio.deletingPathExtension().appendingPathExtension("json") }
+    static func loadMeeting(for audio: URL) -> SavedMeeting? {
+        guard let data = try? Data(contentsOf: jsonURL(for: audio)) else { return nil }
+        return try? JSONDecoder().decode(SavedMeeting.self, from: data)
+    }
+    static func saveMeeting(_ m: SavedMeeting, for audio: URL) {
+        if let data = try? JSONEncoder().encode(m) { try? data.write(to: jsonURL(for: audio)) }
+    }
+}
+
 struct TranscriptLine: Identifiable, Codable {
     var id = UUID()
     let time: TimeInterval

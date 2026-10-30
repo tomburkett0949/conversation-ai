@@ -9,10 +9,8 @@ struct RecordingItem: Identifiable {
     let preview: String
 }
 
-final class MeetingsModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
+final class MeetingsModel: ObservableObject {
     @Published var items: [RecordingItem] = []
-    @Published var playing: URL?
-    private var player: AVAudioPlayer?
 
     func load() {
         let urls = (try? FileManager.default.contentsOfDirectory(at: Storage.recordingsDir,
@@ -21,37 +19,19 @@ final class MeetingsModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             let date = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date()
             let dur = (try? AVAudioPlayer(contentsOf: url).duration) ?? 0
             var preview = ""
-            let jsonURL = url.deletingPathExtension().appendingPathExtension("json")
-            if let data = try? Data(contentsOf: jsonURL),
-               let m = try? JSONDecoder().decode(SavedMeeting.self, from: data) {
+            if let m = Storage.loadMeeting(for: url) {
                 preview = m.lines.prefix(2).map { $0.text }.joined(separator: " ")
             }
             return RecordingItem(url: url, date: date, duration: dur, preview: preview)
         }.sorted { $0.date > $1.date }
     }
 
-    func toggle(_ item: RecordingItem) {
-        if playing == item.url { player?.stop(); playing = nil; return }
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback)
-            try AVAudioSession.sharedInstance().setActive(true)
-            player = try AVAudioPlayer(contentsOf: item.url)
-            player?.delegate = self
-            player?.play()
-            playing = item.url
-        } catch { playing = nil }
-    }
-
     func delete(at offsets: IndexSet) {
         for i in offsets {
             try? FileManager.default.removeItem(at: items[i].url)
-            try? FileManager.default.removeItem(at: items[i].url.deletingPathExtension().appendingPathExtension("json"))
+            try? FileManager.default.removeItem(at: Storage.jsonURL(for: items[i].url))
         }
         items.remove(atOffsets: offsets)
-    }
-
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        DispatchQueue.main.async { self.playing = nil }
     }
 }
 
@@ -67,17 +47,12 @@ struct MeetingsView: View {
             } else {
                 List {
                     ForEach(model.items) { item in
-                        Button { model.toggle(item) } label: {
-                            HStack {
-                                Image(systemName: model.playing == item.url ? "pause.circle.fill" : "play.circle.fill")
-                                    .font(.title2).foregroundStyle(Brand.pink)
-                                VStack(alignment: .leading) {
-                                    Text(item.date.formatted(date: .abbreviated, time: .shortened)).foregroundStyle(Brand.ink)
-                                    Text(String(format: "%d:%02d", Int(item.duration) / 60, Int(item.duration) % 60))
-                                        .font(.footnote).foregroundStyle(Brand.dim)
-                                    if !item.preview.isEmpty {
-                                        Text(item.preview).font(.footnote).foregroundStyle(Brand.dim).lineLimit(2)
-                                    }
+                        NavigationLink(destination: MeetingDetailView(item: item)) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(item.date.formatted(date: .abbreviated, time: .shortened)).foregroundStyle(Brand.ink)
+                                Text(durationText(item.duration)).font(.footnote).foregroundStyle(Brand.dim)
+                                if !item.preview.isEmpty {
+                                    Text(item.preview).font(.footnote).foregroundStyle(Brand.dim).lineLimit(2)
                                 }
                             }
                         }
@@ -92,5 +67,9 @@ struct MeetingsView: View {
         .navigationTitle("Meetings")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { model.load() }
+    }
+
+    private func durationText(_ d: TimeInterval) -> String {
+        String(format: "%d:%02d", Int(d) / 60, Int(d) % 60)
     }
 }
