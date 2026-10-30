@@ -79,6 +79,8 @@ struct HomeView: View {
             case .record: RecordView()
             case .meetings: MeetingsView()
             case .askAI: AskView()
+            case .importAudio: ImportView()
+            case .actions: ActionsView()
             default: ComingSoonView(title: f.rawValue)
             }
         }
