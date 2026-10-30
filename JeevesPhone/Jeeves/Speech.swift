@@ -71,16 +71,18 @@ func startRecognition(_ rec: SFSpeechRecognizer?, _ req: SFSpeechAudioBufferReco
 
     func speak(_ text: String) {
         let u = AVSpeechUtterance(string: text)
-        u.voice = Self.butlerVoice(); u.rate = 0.47; u.pitchMultiplier = 0.9
+        u.voice = Self.butlerVoice(); u.rate = 0.5
         speaking = true; synth.speak(u)
     }
     func stopSpeaking() { synth.stopSpeaking(at: .immediate); speaking = false }
     nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) { Task { @MainActor in self.speaking = false } }
 
-    /// Best installed British male voice (Daniel by default; download "Daniel (Enhanced)" in Settings > Accessibility > Spoken Content > Voices for a nicer one).
+    /// Best installed British voice: premium > enhanced > standard, preferring male butler-ish names.
     static func butlerVoice() -> AVSpeechSynthesisVoice? {
         let gb = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "en-GB" }
-        return gb.filter { $0.name.contains("Daniel") }.max { $0.quality.rawValue < $1.quality.rawValue }
-            ?? gb.max { $0.quality.rawValue < $1.quality.rawValue } ?? AVSpeechSynthesisVoice(language: "en-GB")
+        let male = ["Arthur", "Daniel", "Oliver", "Malcolm", "Gordon"]
+        func score(_ v: AVSpeechSynthesisVoice) -> Int { v.quality.rawValue * 10 + (male.contains { v.name.contains($0) } ? 5 : 0) }
+        return gb.max { score($0) < score($1) } ?? AVSpeechSynthesisVoice(language: "en-GB")
     }
+    static var voiceIsBasic: Bool { (butlerVoice()?.quality.rawValue ?? 1) < 2 }
 }

@@ -6,10 +6,34 @@ import UserNotifications
 let store = EKEventStore()
 
 struct TimeTool: Tool {
-    let name = "currentTime"; let description = "Current date and time for Tom."
-    @Generable struct Arguments { }
-    func call(arguments: Arguments) async throws -> String {
-        let f = DateFormatter(); f.dateFormat = "EEEE d MMMM yyyy, HH:mm"; f.locale = Locale(identifier: "en_GB"); return f.string(from: .now)
+    let name = "currentTime"; let description = "Current date and time anywhere in the world. ALWAYS use this for any question about the time or date, in any city or country."
+    @Generable struct Arguments {
+        @Guide(description: "City, region or country, e.g. New York, Tokyo, Sydney. Leave empty for Tom's own location.") var place: String
+    }
+    static let aliases: [String: String] = [
+        "new york": "America/New_York", "nyc": "America/New_York", "usa": "America/New_York", "united states": "America/New_York", "america": "America/New_York",
+        "los angeles": "America/Los_Angeles", "la": "America/Los_Angeles", "california": "America/Los_Angeles", "san francisco": "America/Los_Angeles",
+        "texas": "America/Chicago", "florida": "America/New_York", "canada": "America/Toronto",
+        "uk": "Europe/London", "england": "Europe/London", "britain": "Europe/London", "london": "Europe/London", "scotland": "Europe/London", "wales": "Europe/London",
+        "france": "Europe/Paris", "germany": "Europe/Berlin", "spain": "Europe/Madrid", "italy": "Europe/Rome", "ireland": "Europe/Dublin",
+        "japan": "Asia/Tokyo", "china": "Asia/Shanghai", "india": "Asia/Kolkata", "dubai": "Asia/Dubai", "uae": "Asia/Dubai", "singapore": "Asia/Singapore",
+        "australia": "Australia/Sydney", "new zealand": "Pacific/Auckland", "south africa": "Africa/Johannesburg", "fiji": "Pacific/Fiji",
+        "argentina": "America/Argentina/Buenos_Aires", "brazil": "America/Sao_Paulo", "mexico": "America/Mexico_City", "hong kong": "Asia/Hong_Kong", "korea": "Asia/Seoul",
+    ]
+    static func zone(_ place: String) -> TimeZone? {
+        let q = place.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if q.isEmpty { return .current }
+        if let id = aliases[q], let z = TimeZone(identifier: id) { return z }
+        let ids = TimeZone.knownTimeZoneIdentifiers
+        let hit = ids.first { ($0.split(separator: "/").last.map { $0.replacingOccurrences(of: "_", with: " ").lowercased() }) == q }
+            ?? ids.first { $0.replacingOccurrences(of: "_", with: " ").lowercased().contains(q) }
+        return hit.flatMap { TimeZone(identifier: $0) }
+    }
+    func call(arguments a: Arguments) async throws -> String {
+        guard let z = Self.zone(a.place) else { return "I don't know the time zone for \(a.place)." }
+        let f = DateFormatter(); f.dateFormat = "EEEE d MMMM yyyy, HH:mm"; f.locale = Locale(identifier: "en_GB"); f.timeZone = z
+        let where_ = a.place.trimmingCharacters(in: .whitespaces).isEmpty ? "here" : a.place
+        return "In \(where_) it is \(f.string(from: .now)) (\(z.identifier))."
     }
 }
 

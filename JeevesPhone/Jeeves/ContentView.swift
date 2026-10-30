@@ -15,6 +15,7 @@ struct ContentView: View {
                 Text(voice.heard.isEmpty ? " " : "“\(voice.heard)”").foregroundStyle(.gray).multilineTextAlignment(.center).padding(.horizontal)
                 Text(reply).font(.title3).foregroundStyle(.white).multilineTextAlignment(.center).padding(.horizontal)
                 Spacer()
+                if Voice.voiceIsBasic { Text("Better voice: Settings > Accessibility > Spoken Content > Voices > English (UK) > download a Premium or Enhanced voice.").font(.caption).foregroundStyle(.gray).multilineTextAlignment(.center).padding(.horizontal) }
                 Button { tap() } label: {
                     Circle().stroke(pink, lineWidth: 4).background(Circle().fill(voice.listening ? pink : .clear))
                         .frame(width: 120, height: 120).overlay(Image(systemName: voice.listening ? "stop.fill" : "mic.fill").font(.largeTitle).foregroundStyle(voice.listening ? .black : pink))
