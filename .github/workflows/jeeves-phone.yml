@@ -35,6 +35,11 @@ jobs:
         run: |
           mkdir -p ~/private_keys
           printf '%s' "$ASC_KEY_P8" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+      - name: Register the bundle ID with Apple
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          BUNDLE_ID: ${{ vars.BUNDLE_PREFIX }}.jeevesassistant
+        run: python3 -m pip install --quiet pyjwt cryptography && python3 tools/register_bundle.py
       - name: Make the Xcode project
         run: cd JeevesPhone && xcodegen generate
       - name: Archive
