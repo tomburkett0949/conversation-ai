@@ -61,8 +61,6 @@ struct HomeView: View {
                         .font(Brand.display(44)).tracking(2).foregroundStyle(Brand.ink)
                     Text(Brand.tagline).foregroundStyle(Brand.dim)
                 }
-                NavigationLink(value: Feature.record) { bigRecordButton }
-                    .buttonStyle(.plain)
                 LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(Feature.allCases.filter { $0 != .record }) { f in
                         NavigationLink(value: f) { tile(f) }.buttonStyle(.plain)
@@ -74,11 +72,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Brand.bg.ignoresSafeArea())
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showSettings = true } label: { Image(systemName: "gearshape") }
-            }
-        }
+        .safeAreaInset(edge: .bottom) { bottomBar }
         .sheet(isPresented: $showSettings) { SettingsView() }
         .navigationDestination(for: Feature.self) { f in
             switch f {
@@ -89,18 +83,32 @@ struct HomeView: View {
         }
     }
 
-    private var bigRecordButton: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "mic.fill").font(.system(size: 30))
-            VStack(alignment: .leading) {
-                Text("RECORD").font(Brand.display(34)).tracking(1.5)
-                Text("Tap to start a meeting or lecture").font(.subheadline).opacity(0.85)
+    private var bottomBar: some View {
+        HStack(alignment: .bottom) {
+            barItem("house.fill", "Home", active: true)
+            NavigationLink(value: Feature.meetings) { barItem("list.bullet.rectangle", "Meetings") }
+            NavigationLink(value: Feature.record) {
+                Image(systemName: "mic.fill").font(.system(size: 28)).foregroundStyle(.white)
+                    .frame(width: 66, height: 66).background(Brand.gradient, in: Circle())
+                    .shadow(color: Brand.hot.opacity(0.4), radius: 8, y: 3)
+                    .offset(y: -10)
             }
-            Spacer()
+            NavigationLink(value: Feature.askAI) { barItem("sparkles", "Ask AI") }
+            Button { showSettings = true } label: { barItem("gearshape", "Settings") }
         }
-        .foregroundStyle(.white)
-        .padding(22)
-        .background(Brand.gradient, in: RoundedRectangle(cornerRadius: 16))
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8).padding(.top, 8).padding(.bottom, 4)
+        .background(Brand.panel.ignoresSafeArea(edges: .bottom))
+        .overlay(alignment: .top) { Rectangle().fill(Brand.line).frame(height: 1) }
+    }
+
+    private func barItem(_ icon: String, _ title: String, active: Bool = false) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 20))
+            Text(title).font(.caption2)
+        }
+        .foregroundStyle(active ? Brand.pink : Brand.dim)
+        .frame(maxWidth: .infinity)
     }
 
     private func tile(_ f: Feature) -> some View {

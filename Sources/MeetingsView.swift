@@ -6,6 +6,7 @@ struct RecordingItem: Identifiable {
     let url: URL
     let date: Date
     let duration: TimeInterval
+    let preview: String
 }
 
 final class MeetingsModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
@@ -19,7 +20,13 @@ final class MeetingsModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         items = urls.filter { $0.pathExtension == "m4a" }.compactMap { url in
             let date = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date()
             let dur = (try? AVAudioPlayer(contentsOf: url).duration) ?? 0
-            return RecordingItem(url: url, date: date, duration: dur)
+            var preview = ""
+            let jsonURL = url.deletingPathExtension().appendingPathExtension("json")
+            if let data = try? Data(contentsOf: jsonURL),
+               let m = try? JSONDecoder().decode(SavedMeeting.self, from: data) {
+                preview = m.lines.prefix(2).map { $0.text }.joined(separator: " ")
+            }
+            return RecordingItem(url: url, date: date, duration: dur, preview: preview)
         }.sorted { $0.date > $1.date }
     }
 
@@ -36,7 +43,10 @@ final class MeetingsModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     func delete(at offsets: IndexSet) {
-        for i in offsets { try? FileManager.default.removeItem(at: items[i].url) }
+        for i in offsets {
+            try? FileManager.default.removeItem(at: items[i].url)
+            try? FileManager.default.removeItem(at: items[i].url.deletingPathExtension().appendingPathExtension("json"))
+        }
         items.remove(atOffsets: offsets)
     }
 
@@ -65,6 +75,9 @@ struct MeetingsView: View {
                                     Text(item.date.formatted(date: .abbreviated, time: .shortened)).foregroundStyle(Brand.ink)
                                     Text(String(format: "%d:%02d", Int(item.duration) / 60, Int(item.duration) % 60))
                                         .font(.footnote).foregroundStyle(Brand.dim)
+                                    if !item.preview.isEmpty {
+                                        Text(item.preview).font(.footnote).foregroundStyle(Brand.dim).lineLimit(2)
+                                    }
                                 }
                             }
                         }
